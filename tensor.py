@@ -1,8 +1,10 @@
+from typing import Tuple, List
+
 import numpy as np
 
 
 class Tensor:
-    # We can view a Tensor as a Binary Tree
+    # ！！！！！！！！！！！！！！！THIS IS A COMPUTE GRAPH, NOT A BINARY TREE！！！！！！！！！！！！！！！！
     def __init__(self,
                  data: np.ndarray,
                  name: str,
@@ -20,35 +22,46 @@ class Tensor:
         self.operation: Operation = operation
         self.grad: Tensor = None
 
+        self.shape: Tuple = self.data.shape
+
     def backward(self):
         """start backpropagation from current tensor, accumulate to each tensor's gradient"""
-        from collections import deque
         from auto_tensor import ones_like
 
+        def reversed_topo_sort() -> List[Tensor]:
+            """Given a list of nodes, return a topological sort list of nodes ending in them."""
+            visited = set()
+            topo_order = []
+            topo_sort_dfs(self, visited, topo_order)
+            return reversed(topo_order)
+
+        def topo_sort_dfs(ts: Tensor, visited, topo_order):
+            """Post-order DFS"""
+            if ts in visited or not ts or not ts.operation:
+                return
+            visited.add(ts)
+            topo_sort_dfs(ts.lhs, visited, topo_order)
+            topo_sort_dfs(ts.rhs, visited, topo_order)
+            topo_order.append(ts)
+
         self.grad = ones_like(self, None)
-        queue = deque([self, ])
-        # using hierarchy traversal
-        while queue:
-            ts = queue.popleft()
-            ts.operation.backward(ts.lhs, ts.rhs, ts.grad)
-            if ts.lhs and ts.lhs.operation:
-                queue.append(ts.lhs)
-            if ts.rhs and ts.rhs.operation:
-                queue.append(ts.rhs)
+
+        for t in reversed_topo_sort():
+            t.operation.backward(t.lhs, t.rhs, t.grad)
 
     def zero_grad(self):
         """clear gradient"""
         self.grad = None
 
     def __add__(self, other):
-        from auto_tensor import add
+        from auto_tensor import add_op
         other = check_tensor(other)
-        return add(self, other)
+        return add_op(self, other)
 
     def __mul__(self, other):
-        from auto_tensor import mul
+        from auto_tensor import mul_op
         other = check_tensor(other)
-        return mul(self, other)
+        return mul_op(self, other)
 
     def __neg__(self):
         return self * -1
@@ -62,9 +75,9 @@ class Tensor:
         return other - self
 
     def __truediv__(self, other):
-        from auto_tensor import div
+        from auto_tensor import div_op
         other = check_tensor(other)
-        return div(self, other)
+        return div_op(self, other)
 
     def __rtruediv__(self, other):
         other = check_tensor(other)
