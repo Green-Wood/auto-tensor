@@ -2,6 +2,19 @@ import numpy as np
 from tensor import Tensor, tensor
 
 
+def accumulate_grad(target: Tensor, grad: Tensor):
+    """
+    Accumulate gradient to target Tensor
+    :param target:
+    :param grad:
+    :return: None
+    """
+    if target.grad:
+        target.grad += grad
+    else:
+        target.grad = grad
+
+
 class Operation:
 
     def __call__(self, lhs: Tensor, rhs: Tensor) -> Tensor:
@@ -26,18 +39,6 @@ class Operation:
         """
         raise NotImplementedError
 
-    def accumulate_grad(self, target: Tensor, grad: Tensor):
-        """
-        Accumulate gradient to target Tensor
-        :param target:
-        :param grad:
-        :return: None
-        """
-        if target.grad:
-            target.grad += grad
-        else:
-            target.grad = grad
-
 
 class AddOp(Operation):
 
@@ -47,8 +48,8 @@ class AddOp(Operation):
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        self.accumulate_grad(lhs, acc_grad)
-        self.accumulate_grad(rhs, acc_grad)
+        accumulate_grad(lhs, acc_grad)
+        accumulate_grad(rhs, acc_grad)
 
 
 class OnesLikeOp(Operation):
@@ -60,8 +61,7 @@ class OnesLikeOp(Operation):
         return Tensor(new_data, new_name, lhs=lhs, operation=self)
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        assert not rhs
-        lhs.grad = zeros_like(lhs, None)
+        pass
 
 
 class ZerosLikeOp(Operation):
@@ -73,8 +73,7 @@ class ZerosLikeOp(Operation):
         return Tensor(new_data, new_name, lhs=lhs, operation=self)
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        assert not rhs
-        lhs.grad = zeros_like(lhs, None)
+        pass
 
 
 class MulOp(Operation):
@@ -85,8 +84,22 @@ class MulOp(Operation):
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        self.accumulate_grad(lhs, rhs * acc_grad)
-        self.accumulate_grad(rhs, lhs * acc_grad)
+        accumulate_grad(lhs, rhs * acc_grad)
+        accumulate_grad(rhs, lhs * acc_grad)
+
+
+class DivOp(Operation):
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        new_data = lhs.data / rhs.data
+        new_name = '({}/{})'.format(lhs.name, rhs.name)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+        numerator_grad = ones_like(lhs, None) / rhs
+        denominator_grad = (-lhs) / (rhs * rhs)
+        accumulate_grad(lhs, numerator_grad)
+        accumulate_grad(rhs, denominator_grad)
 
 
 # singleton factory
@@ -94,3 +107,4 @@ zeros_like = ZerosLikeOp()
 ones_like = OnesLikeOp()
 add = AddOp()
 mul = MulOp()
+div = DivOp()

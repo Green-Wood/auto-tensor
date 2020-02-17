@@ -50,6 +50,35 @@ class Tensor:
         other = check_tensor(other)
         return mul(self, other)
 
+    def __neg__(self):
+        return self * -1
+
+    def __sub__(self, other):
+        other = check_tensor(other)
+        return self + (-other)
+
+    def __rsub__(self, other):
+        other = check_tensor(other)
+        return other - self
+
+    def __truediv__(self, other):
+        from auto_tensor import div
+        other = check_tensor(other)
+        return div(self, other)
+
+    def __rtruediv__(self, other):
+        other = check_tensor(other)
+        return other / self
+
+    def __pow__(self, power, modulo=None):
+        from auto_tensor import ones_like
+        assert isinstance(power, int)
+
+        res = ones_like(self, None)  # 1
+        for i in range(power):
+            res *= self
+        return res
+
     __radd__ = __add__
     __rmul__ = __mul__
 
