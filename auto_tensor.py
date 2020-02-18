@@ -1,7 +1,8 @@
 from typing import Tuple
 
 import numpy as np
-from tensor import Tensor, tensor
+from tensor import Tensor, tensor, ones, zeros
+import nn
 
 
 def accumulate_grad(target: Tensor, grad: Tensor):
@@ -11,6 +12,12 @@ def accumulate_grad(target: Tensor, grad: Tensor):
     :param grad:
     :return: None
     """
+    # if this is a const, just return
+    if target.is_const:
+        return
+
+    assert target.shape == grad.shape
+
     if target.grad:
         target.grad += grad
     else:
@@ -114,7 +121,7 @@ class ExpOp(Operation):
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
         assert not rhs
-        accumulate_grad(lhs, exp_op(lhs, None))
+        accumulate_grad(lhs, exp_op(lhs, None) * acc_grad)
 
 
 class ViewOp(Operation):
@@ -138,8 +145,6 @@ class ViewOp(Operation):
 class PermuteOp(Operation):
 
     def __init__(self, axes: Tuple):
-        if not axes:
-            axes = (1, 0)
         self.axes = axes
 
     def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
@@ -172,6 +177,32 @@ class MatrixMulOp(Operation):
         accumulate_grad(rhs, matmul(lhs_trans, acc_grad))
 
 
+class CatOp(Operation):
+
+    def __init__(self, axes: int):
+        """
+        cat two tensor with the same dim within given axes
+        :param axes:
+        """
+        self.axes = axes
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        assert len(lhs.shape) == len(rhs.shape), 'Two tensor should have same dimension'
+
+        new_data = np.concatenate((lhs.data, rhs.data), axis=self.axes)
+        new_name = 'cat({},{},axes={})'.format(lhs.name, rhs.name, self.axes)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+        lhs_len = lhs.shape[self.axes]
+        rhs_len = rhs.shape[self.axes]
+        lhs_grad, rhs_grad, _ = np.split(acc_grad.data, [lhs_len, lhs_len + rhs_len], self.axes)
+        lhs_grad = Tensor(lhs_grad, '{}_grad'.format(lhs.name))
+        rhs_grad = Tensor(rhs_grad, '{}_grad'.format(rhs.name))
+        accumulate_grad(lhs, lhs_grad)
+        accumulate_grad(rhs, rhs_grad)
+
+
 # singleton factory
 zeros_like = ZerosLikeOp()
 ones_like = OnesLikeOp()
@@ -193,16 +224,34 @@ def view(ts: Tensor, new_shape: Tuple) -> Tensor:
 
 
 def transpose(ts: Tensor) -> Tensor:
-    """equal to permute first 2 dim"""
-    return permute(ts)
+    """Quick func for 2 dim matrix"""
+    assert len(ts.shape) == 2
+    return permute(ts, (1, 0))
 
 
-def permute(ts: Tensor, axes=None) -> Tensor:
+def permute(ts: Tensor, axes) -> Tensor:
     """
-    Same as np.reshape
+    Same as np.reshape, shape must be specified
     :param ts: tensor to permute
     :param axes: if None equals to transpose permute(1, 0)
     :return:
     """
     permute_op = PermuteOp(axes)
     return permute_op(ts, None)
+
+
+def sigmoid(ts: Tensor) -> Tensor:
+    exp_minus_x = exp(-ts)
+    return 1 / (1 + exp_minus_x)
+
+
+def cat(ts1: Tensor, ts2: Tensor, axes: int) -> Tensor:
+    """
+    Cat two tensors within given axes
+    :param ts1:
+    :param ts2:
+    :param axes:
+    :return:
+    """
+    cat_op = CatOp(axes)
+    return cat_op(ts1, ts2)

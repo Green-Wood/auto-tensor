@@ -11,7 +11,8 @@ class Tensor:
                  requires_grad: bool = False,
                  lhs=None,
                  rhs=None,
-                 operation=None):
+                 operation=None,
+                 is_const=False):
         from auto_tensor import Operation
 
         self.data = data
@@ -21,6 +22,7 @@ class Tensor:
         self.rhs: Tensor = rhs
         self.operation: Operation = operation
         self.grad: Tensor = None
+        self.is_const = is_const
 
         self.shape: Tuple = self.data.shape
 
@@ -96,15 +98,27 @@ class Tensor:
     __rmul__ = __mul__
 
 
-def tensor(data, name: str, requires_grad: bool = False) -> Tensor:
+def tensor(data, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
     """Create Tensor user friendly"""
     if isinstance(data, np.ndarray):
         return Tensor(data, name, requires_grad)
-    return Tensor(np.array(data), name, requires_grad)
+    return Tensor(np.array(data), name, requires_grad=requires_grad, is_const=is_const)
+
+
+def ones(shape: Tuple, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
+    """create all ones tensor"""
+    data = np.ones(shape)
+    return Tensor(data, name, requires_grad=requires_grad, is_const=is_const)
+
+
+def zeros(shape: Tuple, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
+    """create all zeros tensor"""
+    data = np.zeros(shape)
+    return Tensor(data, name, requires_grad=requires_grad, is_const=is_const)
 
 
 def check_tensor(data) -> Tensor:
     """check whether it is a scala, List or Tensor"""
     if not isinstance(data, Tensor):
-        data = tensor(data, str(data))
+        data = tensor(data, str(data), is_const=True)
     return data

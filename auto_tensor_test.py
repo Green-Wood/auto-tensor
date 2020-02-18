@@ -1,6 +1,7 @@
 import unittest
 import auto_tensor as at
 import numpy as np
+from auto_tensor import nn
 
 
 class BasicFourOps(unittest.TestCase):
@@ -145,6 +146,39 @@ class Complex(unittest.TestCase):
         expect_x2_grad = np.array([1, 2, 1, 2])
         self.assertTrue(np.array_equal(expect_x1_grad, x1.grad.data))
         self.assertTrue(np.array_equal(expect_x2_grad, x2.grad.data))
+
+    def testSigmoid(self):
+        x = at.tensor([2, 3, 4], 'x', requires_grad=True)
+        y = at.sigmoid(x)
+        y.backward()
+
+        expect_x_grad = y.data * (1 - y.data)
+        expect_y = 1 / (1 + np.exp(-x.data))
+        self.assertTrue(np.isclose(expect_y, y.data).all())
+        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
+
+    def testCat(self):
+        x1 = at.tensor([1, 2], 'x', requires_grad=True)
+        x2 = at.tensor([[3, 3], [4, 5]], 'x', requires_grad=True)
+        x1_view = at.view(x1, (2, 1))
+        y = at.cat(x2, x1_view, axes=1)
+        y = y ** 2
+        y.backward()
+
+        self.assertTrue(np.array_equal(2 * x1.data, x1.grad.data))
+        self.assertTrue(np.array_equal(2 * x2.data, x2.grad.data))
+
+
+class NeuralNet(unittest.TestCase):
+
+    def testLinear(self):
+        x = at.tensor([[1, 2, 3], [3, 4, 5]], name='x')
+        model = nn.Linear('linear', 3, 1, bias=False)
+        y = model(x)
+        y.backward()
+
+        expect_w_grad = x.data.T @ np.ones((2, 1))
+        self.assertTrue(np.array_equal(expect_w_grad, model.W.grad.data))
 
 
 if __name__ == '__main__':

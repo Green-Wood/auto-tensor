@@ -1,7 +1,4 @@
-import numpy as np
+from torch import nn
 
-a = np.array([1, 2, 3])
-a = a.transpose()
-
-print(a)
+nn.Linear()
 
