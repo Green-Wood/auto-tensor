@@ -108,8 +108,8 @@ class DivOp(Operation):
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
         numerator_grad = ones_like(lhs, None) / rhs
         denominator_grad = (-lhs) / (rhs * rhs)
-        accumulate_grad(lhs, numerator_grad)
-        accumulate_grad(rhs, denominator_grad)
+        accumulate_grad(lhs, numerator_grad * acc_grad)
+        accumulate_grad(rhs, denominator_grad * acc_grad)
 
 
 class ExpOp(Operation):
@@ -221,6 +221,7 @@ class SumOp(Operation):
         acc_grad = Tensor(acc_grad, '{}_grad'.format(lhs.name))
         accumulate_grad(lhs, acc_grad)
 
+
 class LogOp(Operation):
 
     def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
@@ -249,9 +250,11 @@ def exp(ts: Tensor) -> Tensor:
     """exp operation wrapper"""
     return exp_op(ts, None)
 
+
 def log(ts: Tensor) -> Tensor:
     """log operation wrapper"""
     return log_op(ts, None)
+
 
 def view(ts: Tensor, new_shape: Tuple) -> Tensor:
     view_op = ViewOp(new_shape)
@@ -304,8 +307,8 @@ def binary_cross_entropy(input: Tensor, target: Tensor) -> Tensor:
     :param target: (batch_size, 1)
     :return:
     """
+    assert input.shape == target.shape, 'input and target have different shape!'
     assert len(input.shape) == 2, 'binary cross entropy only used in 2 dim matrix'
     assert input.shape[1] == 1, 'binary shape[1] should be 1'
     loss = target * log(input) + (1 - target) * log(1 - input)
     return -sum(loss, 0) / input.shape[0]
-

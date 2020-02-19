@@ -157,11 +157,12 @@ class Complex(unittest.TestCase):
 
     def testSigmoid(self):
         x = at.tensor([2, 3, 4], 'x', requires_grad=True)
-        y = at.sigmoid(x)
+        u = at.sigmoid(x)
+        y = 2 * u
         y.backward()
 
-        expect_x_grad = y.data * (1 - y.data)
-        expect_y = 1 / (1 + np.exp(-x.data))
+        expect_x_grad = u.data * (1 - u.data) * 2
+        expect_y = (1 / (1 + np.exp(-x.data))) * 2
         self.assertTrue(np.isclose(expect_y, y.data).all())
         self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
 

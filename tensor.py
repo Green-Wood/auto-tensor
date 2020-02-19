@@ -94,6 +94,9 @@ class Tensor:
             res *= self
         return res
 
+    def __str__(self):
+        return 'tensor({})'.format(self.data)
+
     __radd__ = __add__
     __rmul__ = __mul__
 

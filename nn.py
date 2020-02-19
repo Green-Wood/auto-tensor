@@ -12,6 +12,9 @@ class Module:
         :return:
         """
         require_grad = [v for k, v in vars(self).items() if isinstance(v, Tensor) and v.requires_grad]
+        for k, v in vars(self).items():
+            if isinstance(v, Module):
+                require_grad += v.params()
         return require_grad
 
     def forward(self, x):
@@ -61,7 +64,8 @@ class Linear(Module):
         import auto_tensor as at
 
         assert len(x.shape) == 2, 'input x dim should be 2-dim'
-        assert x.shape[1] == self.W.shape[0], 'x dim[1]: {} should equals to in_dim: {}'.format(x.shape[1], self.W.shape[0])
+        assert x.shape[1] == self.W.shape[0] or (self.bias and x.shape[1] + 1 == self.W.shape[0]), \
+            'x dim[1]: {} should equals to in_dim: {}'.format(x.shape[1], self.W.shape[0])
 
         if self.bias:
             bias = at.ones((x.shape[0], 1), '{}: b'.format(self.name), requires_grad=False, is_const=True)
