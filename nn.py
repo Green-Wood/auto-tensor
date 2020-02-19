@@ -22,6 +22,16 @@ class Module:
         """
         raise NotImplementedError
 
+    def zero_grad(self):
+        """
+        clear all gradients
+        :return:
+        """
+        ts_nn = [v for k, v in vars(self).items() if isinstance(v, Tensor) or isinstance(v, Module)]
+        for item in ts_nn:
+            # using duck type, both Tensor and Module and method zero_grad
+            item.zero_grad()
+
 
 class Linear(Module):
 

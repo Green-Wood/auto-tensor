@@ -116,6 +116,14 @@ class Complex(unittest.TestCase):
         self.assertTrue(np.array_equal(np.exp(x.data**2), y.data))
         self.assertTrue(np.array_equal(2 * x.data * y.data, x.grad.data))
 
+    def testLog(self):
+        x = at.tensor([2, 3, 4], 'x', requires_grad=True)
+        y = at.log(x ** 2)
+        y.backward()
+
+        self.assertTrue(np.array_equal(np.log(x.data ** 2), y.data))
+        self.assertTrue(np.array_equal(2 / x.data, x.grad.data))
+
     def testView(self):
         x = at.tensor([2, 3, 4, 5], 'x', requires_grad=True)
         x1 = at.view(x, (2, 2))
@@ -168,17 +176,42 @@ class Complex(unittest.TestCase):
         self.assertTrue(np.array_equal(2 * x1.data, x1.grad.data))
         self.assertTrue(np.array_equal(2 * x2.data, x2.grad.data))
 
+    def testSum(self):
+        x = at.tensor([[3, 2], [4, 5]], 'x', requires_grad=True)
+        x_sum = at.sum(x, 1)
+        y = x_sum ** 2
+        y.backward()
+
+        expect_x_grad = np.array([[10, 10], [18, 18]])
+        self.assertTrue(np.array_equal(expect_x_grad, x.grad.data))
+
 
 class NeuralNet(unittest.TestCase):
 
     def testLinear(self):
-        x = at.tensor([[1, 2, 3], [3, 4, 5]], name='x')
+        x = at.tensor([[1, 2, 3], [3, 4, 5]], name='x', requires_grad=True)
         model = nn.Linear('linear', 3, 1, bias=False)
         y = model(x)
         y.backward()
 
         expect_w_grad = x.data.T @ np.ones((2, 1))
         self.assertTrue(np.array_equal(expect_w_grad, model.W.grad.data))
+
+        model.zero_grad()
+        self.assertEqual(None, model.W.grad)
+
+    def testBinaryCrossEntropy(self):
+        x = at.tensor([0.1, 0.5, 0.8], name='x', requires_grad=True)
+        y = at.tensor([0, 1, 1], name='y')
+        x_view = at.view(x, (3, 1))
+        y_view = at.view(y, (3, 1))
+        loss = at.binary_cross_entropy(x_view, y_view)
+        loss.backward()
+
+        expect_loss = -np.mean(y.data * np.log(x.data) + (1 - y.data) * np.log(1 - x.data), keepdims=True)
+        expect_x_grad = (y.data - x.data) / (x.shape[0] * x.data * (x.data - 1))
+        self.assertTrue(np.array_equal(expect_loss, loss.data.flatten()))
+        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
 
 
 if __name__ == '__main__':

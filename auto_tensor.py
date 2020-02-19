@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 from tensor import Tensor, tensor, ones, zeros
 import nn
+import optim
 
 
 def accumulate_grad(target: Tensor, grad: Tensor):
@@ -203,6 +204,36 @@ class CatOp(Operation):
         accumulate_grad(rhs, rhs_grad)
 
 
+class SumOp(Operation):
+
+    def __init__(self, axes):
+        self.axes = axes
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        assert not rhs
+        new_data = np.sum(lhs.data, self.axes, keepdims=True)
+        new_name = 'sum({},axis={})'.format(lhs.name, self.axes)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+        repeat_len = lhs.shape[self.axes]
+        acc_grad = np.repeat(acc_grad.data, repeat_len, axis=self.axes)
+        acc_grad = Tensor(acc_grad, '{}_grad'.format(lhs.name))
+        accumulate_grad(lhs, acc_grad)
+
+class LogOp(Operation):
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        assert not rhs
+        new_data = np.log(lhs.data)
+        new_name = 'log({})'.format(lhs.name)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+        assert not rhs
+        accumulate_grad(lhs, 1 / lhs * acc_grad)
+
+
 # singleton factory
 zeros_like = ZerosLikeOp()
 ones_like = OnesLikeOp()
@@ -211,12 +242,16 @@ mul_op = MulOp()
 div_op = DivOp()
 exp_op = ExpOp()
 matmul = MatrixMulOp()
+log_op = LogOp()
 
 
 def exp(ts: Tensor) -> Tensor:
     """exp operation wrapper"""
     return exp_op(ts, None)
 
+def log(ts: Tensor) -> Tensor:
+    """log operation wrapper"""
+    return log_op(ts, None)
 
 def view(ts: Tensor, new_shape: Tuple) -> Tensor:
     view_op = ViewOp(new_shape)
@@ -255,3 +290,22 @@ def cat(ts1: Tensor, ts2: Tensor, axes: int) -> Tensor:
     """
     cat_op = CatOp(axes)
     return cat_op(ts1, ts2)
+
+
+def sum(ts: Tensor, axes: int) -> Tensor:
+    sum_op = SumOp(axes)
+    return sum_op(ts, None)
+
+
+def binary_cross_entropy(input: Tensor, target: Tensor) -> Tensor:
+    """
+    calculate mean cross entropy between input and target
+    :param input: (batch_size, 1)
+    :param target: (batch_size, 1)
+    :return:
+    """
+    assert len(input.shape) == 2, 'binary cross entropy only used in 2 dim matrix'
+    assert input.shape[1] == 1, 'binary shape[1] should be 1'
+    loss = target * log(input) + (1 - target) * log(1 - input)
+    return -sum(loss, 0) / input.shape[0]
+
