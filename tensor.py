@@ -8,7 +8,7 @@ class Tensor:
     def __init__(self,
                  data: np.ndarray,
                  name: str,
-                 requires_grad: bool = False,
+                 requires_optim: bool = False,
                  lhs=None,
                  rhs=None,
                  operation=None,
@@ -17,7 +17,7 @@ class Tensor:
 
         self.data = data
         self.name = name
-        self.requires_grad = requires_grad
+        self.requires_optim = requires_optim
         self.lhs: Tensor = lhs
         self.rhs: Tensor = rhs
         self.operation: Operation = operation
@@ -100,23 +100,23 @@ class Tensor:
     __rmul__ = __mul__
 
 
-def tensor(data, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
+def tensor(data, name: str, requires_optim: bool = False, is_const=False) -> Tensor:
     """Create Tensor user friendly"""
     if isinstance(data, np.ndarray):
-        return Tensor(data, name, requires_grad=requires_grad, is_const=is_const)
-    return Tensor(np.array(data), name, requires_grad=requires_grad, is_const=is_const)
+        return Tensor(data, name, requires_optim=requires_optim, is_const=is_const)
+    return Tensor(np.array(data), name, requires_optim=requires_optim, is_const=is_const)
 
 
-def ones(shape: Tuple, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
+def ones(shape: Tuple, name: str, requires_optim: bool = False, is_const=False) -> Tensor:
     """create all ones tensor"""
     data = np.ones(shape)
-    return Tensor(data, name, requires_grad=requires_grad, is_const=is_const)
+    return Tensor(data, name, requires_optim=requires_optim, is_const=is_const)
 
 
-def zeros(shape: Tuple, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
+def zeros(shape: Tuple, name: str, requires_optim: bool = False, is_const=False) -> Tensor:
     """create all zeros tensor"""
     data = np.zeros(shape)
-    return Tensor(data, name, requires_grad=requires_grad, is_const=is_const)
+    return Tensor(data, name, requires_optim=requires_optim, is_const=is_const)
 
 
 def check_tensor(data) -> Tensor:

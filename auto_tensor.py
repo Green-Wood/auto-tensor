@@ -17,7 +17,14 @@ def accumulate_grad(target: Tensor, grad: np.ndarray):
     if target.is_const:
         return
 
-    assert target.shape == grad.shape
+    if isinstance(target.operation, SumOp):
+        assert target.shape == grad.shape, \
+            'Cannot take derivative of a sum up tensor explicitly.\n' \
+            'Please avoid broadcast a sum up tensor and choose another way to calculate.\n' \
+            'See why softmax as a basic operation'
+
+    assert target.shape == grad.shape, \
+        'tensor and gradient shape not compatible. Tensor: {}, Gradient: {}'.format(target.shape, grad.shape)
 
     target.grad += grad
 
@@ -221,13 +228,38 @@ class LogOp(Operation):
 
     def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
         assert not rhs
-        new_data = np.log(lhs.data)
+        new_data = np.log(lhs.data)  # TODO log(0)
         new_name = 'log({})'.format(lhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         assert not rhs
-        accumulate_grad(lhs, 1 / lhs.data * acc_grad)
+        curr_grad = 1.0 / lhs.data  # TODO overflow
+        accumulate_grad(lhs, curr_grad * acc_grad)
+
+
+class SoftmaxOp(Operation):
+
+    def __init__(self, axes):
+        self.axes = axes
+
+    def cal_softmax_np(self, data: np.ndarray):
+        number = np.max(data, axis=self.axes, keepdims=True)   # avoid overflow
+        exp_input = np.exp(data - number)
+        denominator = np.sum(exp_input, axis=self.axes, keepdims=True)
+        new_data = exp_input / denominator
+        return new_data
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        assert not rhs
+        new_data = self.cal_softmax_np(lhs.data)
+        new_name = 'softmax({})'.format(lhs.name)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
+        assert not rhs
+        y = self.cal_softmax_np(lhs.data)
+        accumulate_grad(lhs, y * (1 - y) * acc_grad)
 
 
 # singleton factory
@@ -310,10 +342,8 @@ def binary_cross_entropy(input: Tensor, target: Tensor) -> Tensor:
 
 
 def softmax(input: Tensor, axes: int) -> Tensor:
-    exp_input = exp(input)
-    denominator = sum(exp_input, axes=axes)
-    normalize = exp_input / denominator
-    return normalize
+    softmax_op = SoftmaxOp(axes)
+    return softmax_op(input, None)
 
 
 def cross_entropy(input: Tensor, target: Tensor) -> Tensor:
