@@ -23,4 +23,16 @@ class SGD(Optimizer):
 
     def step(self):
         for ts in self.params:
-            ts.data -= self.lr * ts.grad.data
+            ts.data -= self.lr * ts.grad
+
+
+class Adam(Optimizer):
+
+    def __init__(self, params: List[Tensor], lr: float, beta = (0.9, 0.999), eps=1e-6):
+        super().__init__(params)
+        self.lr = lr
+        self.beta = beta
+        self.eps = eps
+
+    def step(self):
+        pass

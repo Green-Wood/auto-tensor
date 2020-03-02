@@ -21,7 +21,7 @@ class Tensor:
         self.lhs: Tensor = lhs
         self.rhs: Tensor = rhs
         self.operation: Operation = operation
-        self.grad: Tensor = None
+        self.grad: np.ndarray = np.zeros_like(data, dtype=np.float)
         self.is_const = is_const
 
         self.shape: Tuple = self.data.shape
@@ -46,14 +46,14 @@ class Tensor:
             topo_sort_dfs(ts.rhs, visited, topo_order)
             topo_order.append(ts)
 
-        self.grad = ones_like(self, None)
+        self.grad = np.ones_like(self.data, dtype=np.float)
 
         for t in reversed_topo_sort():
             t.operation.backward(t.lhs, t.rhs, t.grad)
 
     def zero_grad(self):
         """clear gradient"""
-        self.grad = None
+        self.grad = np.zeros_like(self.data, dtype=np.float)
 
     def __add__(self, other):
         from auto_tensor import add_op

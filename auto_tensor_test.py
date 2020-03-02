@@ -18,8 +18,8 @@ class BasicFourOps(unittest.TestCase):
         self.assertEqual(np.array(7), y3.data)
 
         y4.backward()
-        self.assertEqual(np.array(2), x1.grad.data)
-        self.assertEqual(np.array(1), x2.grad.data)
+        self.assertEqual(np.array(2), x1.grad)
+        self.assertEqual(np.array(1), x2.grad)
 
     def testMul(self):
         x1 = at.tensor([3, 4, 5], 'x1', requires_grad=True)
@@ -27,8 +27,8 @@ class BasicFourOps(unittest.TestCase):
         y1 = x1 * x2
         y1.backward()
         self.assertTrue(np.array_equal(np.array([6, 8, 10]), y1.data))
-        self.assertTrue(np.array_equal(2 * np.ones(3), x1.grad.data))
-        self.assertTrue(np.array_equal(np.array([3, 4, 5]), x2.grad.data))
+        self.assertTrue(np.array_equal(2 * np.ones(3), x1.grad))
+        self.assertTrue(np.array_equal(np.array([3, 4, 5]), x2.grad))
 
         x1.zero_grad()
         x2.zero_grad()
@@ -36,8 +36,8 @@ class BasicFourOps(unittest.TestCase):
         y2 = y1 * x1 + x2
         y2.backward()
         self.assertTrue(np.array_equal(x1.data ** 2 * x2.data + x2.data, y2.data))
-        self.assertTrue(np.array_equal(2 * x1.data * x2.data, x1.grad.data))
-        self.assertTrue(np.array_equal(x1.data ** 2 + np.ones(3), x2.grad.data))
+        self.assertTrue(np.array_equal(2 * x1.data * x2.data, x1.grad))
+        self.assertTrue(np.array_equal(x1.data ** 2 + np.ones(3), x2.grad))
 
     def testSub(self):
         x1 = at.tensor([3, 4, 5], 'x1', requires_grad=True)
@@ -50,8 +50,8 @@ class BasicFourOps(unittest.TestCase):
         self.assertTrue(np.array_equal(x1.data - x2.data, y1.data))
         self.assertTrue(np.array_equal(x1.data - 1, y2.data))
         self.assertTrue(np.array_equal(3 - x2.data, y3.data))
-        self.assertTrue(np.array_equal(np.ones(3), x1.grad.data))
-        self.assertTrue(np.array_equal(-np.ones(3), x2.grad.data))
+        self.assertTrue(np.array_equal(np.ones(3), x1.grad))
+        self.assertTrue(np.array_equal(-np.ones(3), x2.grad))
 
     def testDiv(self):
         x1 = at.tensor([3, 4, 5], 'x1', requires_grad=True)
@@ -62,15 +62,15 @@ class BasicFourOps(unittest.TestCase):
 
         self.assertTrue(np.array_equal(x1.data / x2.data, y1.data))
         self.assertTrue(np.array_equal(y2.data, x2.data / 2))
-        self.assertTrue(np.array_equal(1 / x2.data, x1.grad.data))
-        self.assertTrue(np.array_equal(-x1.data / x2.data ** 2, x2.grad.data))
+        self.assertTrue(np.array_equal(1 / x2.data, x1.grad))
+        self.assertTrue(np.array_equal(-x1.data / x2.data ** 2, x2.grad))
 
     def testSquare(self):
         x = at.tensor([2, 3, 4], 'x', requires_grad=True)
         y = x ** 5
         y.backward()
 
-        self.assertTrue(np.array_equal(5 * x.data ** 4, x.grad.data))
+        self.assertTrue(np.array_equal(5 * x.data ** 4, x.grad))
 
     def testComplex1(self):
         x = at.tensor([1, 2, 3], 'x', requires_grad=True)
@@ -79,7 +79,7 @@ class BasicFourOps(unittest.TestCase):
         z.backward()
 
         expect_x_grad = y.data / (x.data + y.data) ** 2
-        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
+        self.assertTrue(np.isclose(expect_x_grad, x.grad).all())
 
     def testComplex2(self):
         x = at.tensor([1, 2, 3], 'x', requires_grad=True)
@@ -88,8 +88,8 @@ class BasicFourOps(unittest.TestCase):
         z.backward()
 
         expect_x_grad = (x.data**2 + 2*x.data*y.data) / (x.data+y.data) ** 2
-        print('\nexpect x grad: {}\ntrue x grad: {}'.format(expect_x_grad, x.grad.data))
-        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
+        print('\nexpect x grad: {}\ntrue x grad: {}'.format(expect_x_grad, x.grad))
+        self.assertTrue(np.isclose(expect_x_grad, x.grad).all())
 
     def testComplex3(self):
         x = at.tensor([1, 2, 3], 'x', requires_grad=True)
@@ -101,10 +101,10 @@ class BasicFourOps(unittest.TestCase):
         expect_z = (x.data ** 2 + x.data - y.data) / (2 * x.data + y.data)
 
         z.backward()
-        print('\nexpect x grad: {}\ntrue x grad: {}'.format(expect_x_grad, x.grad.data))
+        print('\nexpect x grad: {}\ntrue x grad: {}'.format(expect_x_grad, x.grad))
         self.assertTrue(np.array_equal(expect_z, z.data))
-        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
-        self.assertTrue(np.isclose(expect_y_grad, y.grad.data).all())
+        self.assertTrue(np.isclose(expect_x_grad, x.grad).all())
+        self.assertTrue(np.isclose(expect_y_grad, y.grad).all())
 
 
 class Complex(unittest.TestCase):
@@ -114,7 +114,7 @@ class Complex(unittest.TestCase):
         y.backward()
 
         self.assertTrue(np.array_equal(np.exp(x.data**2), y.data))
-        self.assertTrue(np.array_equal(2 * x.data * y.data, x.grad.data))
+        self.assertTrue(np.array_equal(2 * x.data * y.data, x.grad))
 
     def testLog(self):
         x = at.tensor([2, 3, 4], 'x', requires_grad=True)
@@ -122,7 +122,7 @@ class Complex(unittest.TestCase):
         y.backward()
 
         self.assertTrue(np.array_equal(np.log(x.data ** 2), y.data))
-        self.assertTrue(np.array_equal(2 / x.data, x.grad.data))
+        self.assertTrue(np.array_equal(2 / x.data, x.grad))
 
     def testView(self):
         x = at.tensor([2, 3, 4, 5], 'x', requires_grad=True)
@@ -131,7 +131,7 @@ class Complex(unittest.TestCase):
         y.backward()
 
         self.assertTrue(np.array_equal(x.data.reshape((2, 2)) ** 3, y.data))
-        self.assertTrue(np.array_equal(3 * x.data ** 2, x.grad.data))
+        self.assertTrue(np.array_equal(3 * x.data ** 2, x.grad))
 
     def testTranspose(self):
         x = at.tensor([[2, 3, 4, 5]], 'x', requires_grad=True)
@@ -140,7 +140,7 @@ class Complex(unittest.TestCase):
         y.backward()
 
         self.assertTrue(np.array_equal(x.data.T ** 3, y.data))
-        self.assertTrue(np.array_equal(3 * x.data ** 2, x.grad.data))
+        self.assertTrue(np.array_equal(3 * x.data ** 2, x.grad))
 
     def testMatMul(self):
         x1 = at.tensor([1, 2], 'x1', requires_grad=True)
@@ -152,8 +152,8 @@ class Complex(unittest.TestCase):
 
         expect_x1_grad = np.array([4, 6])
         expect_x2_grad = np.array([1, 2, 1, 2])
-        self.assertTrue(np.array_equal(expect_x1_grad, x1.grad.data))
-        self.assertTrue(np.array_equal(expect_x2_grad, x2.grad.data))
+        self.assertTrue(np.array_equal(expect_x1_grad, x1.grad))
+        self.assertTrue(np.array_equal(expect_x2_grad, x2.grad))
 
     def testSigmoid(self):
         x = at.tensor([2, 3, 4], 'x', requires_grad=True)
@@ -164,7 +164,7 @@ class Complex(unittest.TestCase):
         expect_x_grad = u.data * (1 - u.data) * 2
         expect_y = (1 / (1 + np.exp(-x.data))) * 2
         self.assertTrue(np.isclose(expect_y, y.data).all())
-        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
+        self.assertTrue(np.isclose(expect_x_grad, x.grad).all())
 
     def testCat(self):
         x1 = at.tensor([1, 2], 'x', requires_grad=True)
@@ -174,8 +174,8 @@ class Complex(unittest.TestCase):
         y = y ** 2
         y.backward()
 
-        self.assertTrue(np.array_equal(2 * x1.data, x1.grad.data))
-        self.assertTrue(np.array_equal(2 * x2.data, x2.grad.data))
+        self.assertTrue(np.array_equal(2 * x1.data, x1.grad))
+        self.assertTrue(np.array_equal(2 * x2.data, x2.grad))
 
     def testSum(self):
         x = at.tensor([[3, 2], [4, 5]], 'x', requires_grad=True)
@@ -184,7 +184,7 @@ class Complex(unittest.TestCase):
         y.backward()
 
         expect_x_grad = np.array([[10, 10], [18, 18]])
-        self.assertTrue(np.array_equal(expect_x_grad, x.grad.data))
+        self.assertTrue(np.array_equal(expect_x_grad, x.grad))
 
 
 class NeuralNet(unittest.TestCase):
@@ -196,10 +196,7 @@ class NeuralNet(unittest.TestCase):
         y.backward()
 
         expect_w_grad = x.data.T @ np.ones((2, 1))
-        self.assertTrue(np.array_equal(expect_w_grad, model.W.grad.data))
-
-        model.zero_grad()
-        self.assertEqual(None, model.W.grad)
+        self.assertTrue(np.array_equal(expect_w_grad, model.W.grad))
 
     def testBinaryCrossEntropy(self):
         x = at.tensor([0.1, 0.5, 0.8], name='x', requires_grad=True)
@@ -212,7 +209,7 @@ class NeuralNet(unittest.TestCase):
         expect_loss = -np.mean(y.data * np.log(x.data) + (1 - y.data) * np.log(1 - x.data), keepdims=True)
         expect_x_grad = (y.data - x.data) / (x.shape[0] * x.data * (x.data - 1))
         self.assertTrue(np.array_equal(expect_loss, loss.data.flatten()))
-        self.assertTrue(np.isclose(expect_x_grad, x.grad.data).all())
+        self.assertTrue(np.isclose(expect_x_grad, x.grad).all())
 
 
 if __name__ == '__main__':

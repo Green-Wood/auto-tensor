@@ -6,7 +6,7 @@ import nn
 import optim
 
 
-def accumulate_grad(target: Tensor, grad: Tensor):
+def accumulate_grad(target: Tensor, grad: np.ndarray):
     """
     Accumulate gradient to target Tensor
     :param target:
@@ -19,10 +19,7 @@ def accumulate_grad(target: Tensor, grad: Tensor):
 
     assert target.shape == grad.shape
 
-    if target.grad:
-        target.grad += grad
-    else:
-        target.grad = grad
+    target.grad += grad
 
 
 class Operation:
@@ -39,7 +36,7 @@ class Operation:
         """
         raise NotImplementedError
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         """
         calculate backward new Tensor gradient
         :param rhs: left hand operator, used when there is only one operator
@@ -57,7 +54,7 @@ class AddOp(Operation):
         new_name = '({}+{})'.format(lhs.name, rhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         accumulate_grad(lhs, acc_grad)
         accumulate_grad(rhs, acc_grad)
 
@@ -70,7 +67,7 @@ class OnesLikeOp(Operation):
         new_name = 'OnesLike({})'.format(lhs.name)
         return Tensor(new_data, new_name, lhs=lhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         pass
 
 
@@ -82,7 +79,7 @@ class ZerosLikeOp(Operation):
         new_name = 'ZerosLike({})'.format(lhs.name)
         return Tensor(new_data, new_name, lhs=lhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         pass
 
 
@@ -93,9 +90,9 @@ class MulOp(Operation):
         new_name = '({}*{})'.format(lhs.name, rhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        accumulate_grad(lhs, rhs * acc_grad)
-        accumulate_grad(rhs, lhs * acc_grad)
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
+        accumulate_grad(lhs, rhs.data * acc_grad)
+        accumulate_grad(rhs, lhs.data * acc_grad)
 
 
 class DivOp(Operation):
@@ -105,9 +102,9 @@ class DivOp(Operation):
         new_name = '({}/{})'.format(lhs.name, rhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        numerator_grad = ones_like(lhs, None) / rhs
-        denominator_grad = (-lhs) / (rhs * rhs)
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
+        numerator_grad = np.ones_like(lhs.data) / rhs.data
+        denominator_grad = (-lhs.data) / (rhs.data ** 2)
         accumulate_grad(lhs, numerator_grad * acc_grad)
         accumulate_grad(rhs, denominator_grad * acc_grad)
 
@@ -120,9 +117,10 @@ class ExpOp(Operation):
         new_name = 'exp({})'.format(lhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         assert not rhs
-        accumulate_grad(lhs, exp_op(lhs, None) * acc_grad)
+        this_grad = np.exp(lhs.data)
+        accumulate_grad(lhs, this_grad * acc_grad)
 
 
 class ViewOp(Operation):
@@ -137,9 +135,9 @@ class ViewOp(Operation):
         new_name = '(view({},{}))'.format(lhs.name, self.new_shape)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         assert not rhs
-        acc_grad_reshape = view(acc_grad, lhs.shape)
+        acc_grad_reshape = acc_grad.reshape(lhs.shape)
         accumulate_grad(lhs, acc_grad_reshape)
 
 
@@ -154,13 +152,13 @@ class PermuteOp(Operation):
         new_name = '(permute({},{}))'.format(lhs.name, self.axes)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         assert not rhs
         new_axes = [0] * len(self.axes)
         # permute back to original space
         for k, v in enumerate(self.axes):
             new_axes[v] = k
-        acc_grad_permute = permute(acc_grad, tuple(new_axes))
+        acc_grad_permute = np.transpose(acc_grad, tuple(new_axes))
         accumulate_grad(lhs, acc_grad_permute)
 
 
@@ -171,11 +169,11 @@ class MatrixMulOp(Operation):
         new_name = 'matmul({},{})'.format(lhs.name, rhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
-        lhs_trans = transpose(lhs)
-        rhs_trans = transpose(rhs)
-        accumulate_grad(lhs, matmul(acc_grad, rhs_trans))
-        accumulate_grad(rhs, matmul(lhs_trans, acc_grad))
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
+        lhs_trans = np.transpose(lhs.data)
+        rhs_trans = np.transpose(rhs.data)
+        accumulate_grad(lhs, acc_grad @ rhs_trans)
+        accumulate_grad(rhs, lhs_trans @ acc_grad)
 
 
 class CatOp(Operation):
@@ -194,12 +192,10 @@ class CatOp(Operation):
         new_name = 'cat({},{},axes={})'.format(lhs.name, rhs.name, self.axes)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         lhs_len = lhs.shape[self.axes]
         rhs_len = rhs.shape[self.axes]
-        lhs_grad, rhs_grad, _ = np.split(acc_grad.data, [lhs_len, lhs_len + rhs_len], self.axes)
-        lhs_grad = Tensor(lhs_grad, '{}_grad'.format(lhs.name))
-        rhs_grad = Tensor(rhs_grad, '{}_grad'.format(rhs.name))
+        lhs_grad, rhs_grad, _ = np.split(acc_grad, [lhs_len, lhs_len + rhs_len], self.axes)
         accumulate_grad(lhs, lhs_grad)
         accumulate_grad(rhs, rhs_grad)
 
@@ -215,10 +211,9 @@ class SumOp(Operation):
         new_name = 'sum({},axis={})'.format(lhs.name, self.axes)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         repeat_len = lhs.shape[self.axes]
-        acc_grad = np.repeat(acc_grad.data, repeat_len, axis=self.axes)
-        acc_grad = Tensor(acc_grad, '{}_grad'.format(lhs.name))
+        acc_grad = np.repeat(acc_grad, repeat_len, axis=self.axes)
         accumulate_grad(lhs, acc_grad)
 
 
@@ -230,9 +225,9 @@ class LogOp(Operation):
         new_name = 'log({})'.format(lhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
-    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: Tensor):
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         assert not rhs
-        accumulate_grad(lhs, 1 / lhs * acc_grad)
+        accumulate_grad(lhs, 1 / lhs.data * acc_grad)
 
 
 # singleton factory
