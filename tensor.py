@@ -103,7 +103,7 @@ class Tensor:
 def tensor(data, name: str, requires_grad: bool = False, is_const=False) -> Tensor:
     """Create Tensor user friendly"""
     if isinstance(data, np.ndarray):
-        return Tensor(data, name, requires_grad)
+        return Tensor(data, name, requires_grad=requires_grad, is_const=is_const)
     return Tensor(np.array(data), name, requires_grad=requires_grad, is_const=is_const)
 
 

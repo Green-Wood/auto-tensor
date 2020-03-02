@@ -2,7 +2,7 @@ import unittest
 import auto_tensor as at
 import numpy as np
 from auto_tensor import nn
-
+import torch
 
 class BasicFourOps(unittest.TestCase):
     def testAdd(self):
@@ -185,6 +185,31 @@ class Complex(unittest.TestCase):
 
         expect_x_grad = np.array([[10, 10], [18, 18]])
         self.assertTrue(np.array_equal(expect_x_grad, x.grad))
+
+    def testBinaryCrossEntropy(self):
+        at_a = at.tensor([[0.1], [0.3]], name='a')
+
+        ts_a = torch.from_numpy(at_a.data)
+
+        at_target = at.tensor([[1.0], [0.0]], name='target')
+        ts_target = torch.from_numpy(at_target.data)
+
+        at_res = at.binary_cross_entropy(at_a, at_target)
+        ts_res = torch.nn.functional.binary_cross_entropy(ts_a, ts_target)
+
+        self.assertAlmostEqual(ts_res.item(), at_res.data[0][0])
+
+    def testCrossEntropy(self):
+        at_a = at.tensor([[0.1, 0.2, 0.3], [0.4, 0.3, 0.2], [0.2, 0.5, 0.1]], name='a')
+        ts_a = torch.from_numpy(at_a.data)
+
+        at_target = at.tensor([2, 0, 1], 'target')
+        ts_target = torch.from_numpy(at_target.data)
+
+        at_res = at.cross_entropy(at_a, at_target)
+        ts_res = torch.nn.functional.cross_entropy(ts_a, ts_target)
+
+        self.assertAlmostEqual(ts_res.item(), at_res.data[0][0])
 
 
 class NeuralNet(unittest.TestCase):

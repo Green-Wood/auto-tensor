@@ -297,7 +297,7 @@ def sum(ts: Tensor, axes: int) -> Tensor:
 
 def binary_cross_entropy(input: Tensor, target: Tensor) -> Tensor:
     """
-    calculate mean cross entropy between input and target
+    calculate mean binary cross entropy between input and target
     :param input: (batch_size, 1)
     :param target: (batch_size, 1)
     :return:
@@ -307,3 +307,33 @@ def binary_cross_entropy(input: Tensor, target: Tensor) -> Tensor:
     assert input.shape[1] == 1, 'binary shape[1] should be 1'
     loss = target * log(input) + (1 - target) * log(1 - input)
     return -sum(loss, 0) / input.shape[0]
+
+
+def softmax(input: Tensor, axes: int) -> Tensor:
+    exp_input = exp(input)
+    denominator = sum(exp_input, axes=axes)
+    normalize = exp_input / denominator
+    return normalize
+
+
+def cross_entropy(input: Tensor, target: Tensor) -> Tensor:
+    """
+    calculate mean binary cross entropy between input and target
+    :param input: (batch_size, classes)
+    :param target: (batch_size, )   1-dim
+    :return:
+    """
+    normalize = softmax(input, 1)
+    norm_log = log(normalize)
+
+    np_one_hot = np.eye(input.shape[1])[target.data]
+    tensor_one_hot = tensor(np_one_hot, 'one-hot', False, True)
+
+    mask = -norm_log * tensor_one_hot
+    mask_sum = sum(mask, 1)
+    loss = sum(mask_sum, 0)
+
+    return loss / input.shape[0]
+
+
+
