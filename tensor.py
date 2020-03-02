@@ -28,7 +28,6 @@ class Tensor:
 
     def backward(self):
         """start backpropagation from current tensor, accumulate to each tensor's gradient"""
-        from auto_tensor import ones_like
 
         def reversed_topo_sort() -> List[Tensor]:
             """Given a list of nodes, return a topological sort list of nodes ending in them."""

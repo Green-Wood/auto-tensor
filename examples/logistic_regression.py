@@ -28,11 +28,11 @@ X_test = at.tensor(X_test, 'X_test', is_const=True)
 y_train = at.tensor(y_train, 'y_train', is_const=True)
 y_test = at.tensor(y_test, 'y_test', is_const=True)
 
-epoch = 1000
-lr = 0.1
+epoch = 1500
+lr = 0.001
 
 model = LogisticRegression(X.shape[1])
-optimizer = optim.SGD(model.params(), lr=lr)
+optimizer = optim.Adam(model.params(), lr=lr)
 
 for i in range(epoch):
     model.zero_grad()
@@ -43,10 +43,8 @@ for i in range(epoch):
     loss.backward()
 
     # verify gradient
-    # expect_w_grad = 1 / y_train_view.shape[0] * X_train.data.T @ (y_hat.data - y_train_view.data)
     expect_y_hat_grad = (y_train_view.data - y_hat.data) / (y_train_view.shape[0] * y_hat.data * (y_hat.data - 1))
     assert np.isclose(expect_y_hat_grad, y_hat.grad.data).all()
-    # assert np.isclose(expect_w_grad, model.linear.W.grad.data).all()
 
     # take a step forward
     optimizer.step()
