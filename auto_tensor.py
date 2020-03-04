@@ -238,28 +238,59 @@ class LogOp(Operation):
         accumulate_grad(lhs, curr_grad * acc_grad)
 
 
+def _cal_softmax_np(data: np.ndarray, axes):
+    number = np.max(data, axis=axes, keepdims=True)   # avoid overflow
+    exp_input = np.exp(data - number)
+    denominator = np.sum(exp_input, axis=axes, keepdims=True)
+    new_data = exp_input / denominator
+    return new_data
+
+
 class SoftmaxOp(Operation):
 
     def __init__(self, axes):
         self.axes = axes
 
-    def cal_softmax_np(self, data: np.ndarray):
-        number = np.max(data, axis=self.axes, keepdims=True)   # avoid overflow
-        exp_input = np.exp(data - number)
-        denominator = np.sum(exp_input, axis=self.axes, keepdims=True)
-        new_data = exp_input / denominator
-        return new_data
-
     def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
         assert not rhs
-        new_data = self.cal_softmax_np(lhs.data)
+        new_data = _cal_softmax_np(lhs.data, self.axes)
         new_name = 'softmax({})'.format(lhs.name)
         return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
 
     def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
         assert not rhs
-        y = self.cal_softmax_np(lhs.data)
+        y = _cal_softmax_np(lhs.data, self.axes)
         accumulate_grad(lhs, y * (1 - y) * acc_grad)
+
+
+class LogSoftmaxOp(Operation):
+    """
+    While mathematically equivalent to log(softmax(x)), doing these two
+    operations separately is slower, and numerically unstable. This function
+    uses an alternative formulation to compute the output and gradient correctly.
+    See. https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/
+    """
+
+    def __init__(self, axes):
+        self.axes = axes
+
+    def _cal_log_softmax_np(self, data: np.ndarray):
+        b = np.max(data, axis=self.axes, keepdims=True)  # avoid overflow
+        exp_data = np.exp(data - b)
+        exp_sum = np.sum(exp_data, axis=self.axes, keepdims=True)
+        new_data = data - b - np.log(exp_sum)
+        return new_data
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        assert not rhs
+        new_data = self._cal_log_softmax_np(lhs.data)
+        new_name = 'log_softmax({})'.format(lhs.name)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
+        assert not rhs
+        y = _cal_softmax_np(lhs.data, self.axes)
+        accumulate_grad(lhs, (1 - y) * acc_grad)
 
 
 # singleton factory
@@ -346,6 +377,12 @@ def softmax(input: Tensor, axes: int) -> Tensor:
     return softmax_op(input, None)
 
 
+def log_softmax(input: Tensor, axes: int) -> Tensor:
+    """Avoid overflow"""
+    log_softmax_op = LogSoftmaxOp(axes)
+    return log_softmax_op(input, None)
+
+
 def cross_entropy(input: Tensor, target: Tensor) -> Tensor:
     """
     calculate mean binary cross entropy between input and target
@@ -353,8 +390,7 @@ def cross_entropy(input: Tensor, target: Tensor) -> Tensor:
     :param target: (batch_size, )   1-dim
     :return:
     """
-    normalize = softmax(input, 1)
-    norm_log = log(normalize)
+    norm_log = log_softmax(input, 1)
 
     np_one_hot = np.eye(input.shape[1])[target.data]
     tensor_one_hot = tensor(np_one_hot, 'one-hot', False, True)
@@ -364,6 +400,3 @@ def cross_entropy(input: Tensor, target: Tensor) -> Tensor:
     loss = sum(mask_sum, 0)
 
     return loss / input.shape[0]
-
-
-
