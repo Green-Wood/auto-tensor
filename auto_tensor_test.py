@@ -188,6 +188,16 @@ class Complex(unittest.TestCase):
         expect_x_grad = np.array([[10, 10], [18, 18]])
         self.assertTrue(np.array_equal(expect_x_grad, x.grad))
 
+    def testRelu(self):
+        x = at.tensor([[3, -2], [4, -5]], 'x', requires_optim=True)
+        y = at.relu(x)
+        y.backward()
+
+        expect_y = np.array([[3, 0], [4, 0]])
+        expect_grad = np.array([[1, 0], [1, 0]])
+        self.assertTrue(np.array_equal(expect_y, y.data))
+        self.assertTrue(np.array_equal(expect_grad, x.grad))
+
 
 class NeuralNet(unittest.TestCase):
 

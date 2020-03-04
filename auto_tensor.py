@@ -239,7 +239,7 @@ class LogOp(Operation):
 
 
 def _cal_softmax_np(data: np.ndarray, axes):
-    number = np.max(data, axis=axes, keepdims=True)   # avoid overflow
+    number = np.max(data, axis=axes, keepdims=True)  # avoid overflow
     exp_input = np.exp(data - number)
     denominator = np.sum(exp_input, axis=axes, keepdims=True)
     new_data = exp_input / denominator
@@ -293,6 +293,20 @@ class LogSoftmaxOp(Operation):
         accumulate_grad(lhs, (1 - y) * acc_grad)
 
 
+class ReluOp(Operation):
+
+    def forward(self, lhs: Tensor, rhs: Tensor) -> Tensor:
+        assert not rhs
+        new_data = np.where(lhs.data > 0, lhs.data, 0)
+        new_name = 'relu({})'.format(lhs.name)
+        return Tensor(new_data, new_name, lhs=lhs, rhs=rhs, operation=self)
+
+    def backward(self, lhs: Tensor, rhs: Tensor, acc_grad: np.ndarray):
+        assert not rhs
+        mask = np.where(lhs.data > 0, 1, 0)
+        accumulate_grad(lhs, mask * acc_grad)
+
+
 # singleton factory
 zeros_like = ZerosLikeOp()
 ones_like = OnesLikeOp()
@@ -302,6 +316,7 @@ div_op = DivOp()
 exp_op = ExpOp()
 matmul = MatrixMulOp()
 log_op = LogOp()
+relu_op = ReluOp()
 
 
 def exp(ts: Tensor) -> Tensor:
@@ -339,6 +354,10 @@ def permute(ts: Tensor, axes) -> Tensor:
 def sigmoid(ts: Tensor) -> Tensor:
     exp_minus_x = exp(-ts)
     return 1 / (1 + exp_minus_x)
+
+
+def relu(ts: Tensor) -> Tensor:
+    return relu_op(ts, None)
 
 
 def cat(ts1: Tensor, ts2: Tensor, axes: int) -> Tensor:
